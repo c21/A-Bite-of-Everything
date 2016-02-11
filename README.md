@@ -1,6 +1,7 @@
 # make
 
 1.A makefile: rules
+
   A rule: target, prerequisites, commands
   targets: prereq1 prereq2
 	  commands
