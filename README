@@ -1,9 +1,9 @@
 # make
 
-1.A makefile: rules
-  A rule: target, prerequisites, commands
+1.A makefile: rules  
+  A rule: target, prerequisites, commands  
   targets: prereq1 prereq2
-	  commands
+	   commands
   target: file to be made.
   prerequisites: files must exist 
   commands: shell commands to run(preceded by a tab)
