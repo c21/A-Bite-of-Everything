@@ -1,0 +1,68 @@
+1.;; to indicate the end of statement.
+
+2.define function f(a,b):
+  let gexpr = 1;;		(global expression) 
+
+  let (rec) f a b = 
+	let lexpr = ... in	(local expression or nested function, can be used until ;;)
+	...;;
+  
+  (the last expression in a function becomes the result of the function automatically)
+
+3.call function f(a,b): f a b
+
+4.basic types: int(use +), float(use +.), bool, char, string, unit(is (), like void in C).
+
+5.OCaml: statically typed language, type inference, no automatic conversion.
+
+6.comments: (* *)
+
+7.variable (create reference)
+	let x = ref 0;;		(int a = 0, *x = &a;)	
+	x := ...;;		(*x = ...;)
+	!x;;			(*x;)
+
+8.when to use ;; 
+  separate statements at the top-level of your code, and never within function definitions 
+  or any other kind of statement. 
+
+9.how to define data type:
+  OCaml name     Example type definition        Example usage
+
+  list           int list                       [1; 2; 3]
+  tuple          int * string                   (3, "hello")
+  record         type pair =                    { a = 3; b = "hello" }
+                 { a: int; b: string }
+  variant        type foo =
+                 | Int of int                 Int 3
+                 | Pair of foo * foo
+  variant        type sign =
+                 | Positive(constructor,capitalized)             
+                 | Zero                       
+                 | Negative of int            Nagetive -5 
+  parameterized  type 'a my_list =
+  variant        | Empty                      Cons (1, Cons (2, Empty))
+                 | Cons of 'a * 'a my_list
+
+10.pattern matching:
+   match ... with
+   | ...[when ...] -> ...
+   | ...[when ...] -> ...
+   ...
+
+11.equal operator (=) is used to test structural equality between two expressions.
+
+12.if-else: 
+   if ... then ...
+   if ... then ... else ...
+
+13.loop:
+   for ... = ... to(downto) ... do
+       ...
+   done
+   while ... do
+      ...
+   done   
+
+14.useful function on list: 
+   List.iter, map, filter, mem, for_all, exists, fold_left/right
