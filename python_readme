@@ -1,0 +1,202 @@
+1. run python program a.py: 
+   python a.py
+
+2. get information for function or statement(e.g. len):
+   python
+   help('len')
+
+3. comment: 
+   # ...
+
+4. basic data type: int, float, string
+   There is no separate long type. The int type can be an integer of
+   any size. There is no separate char data type in Python.
+
+5. string:
+   'abc', "abc", '''abc''', or """abc""", string cannot be changed.
+   (a single backslash at the end of line in string indicates
+    that the string is continued in the next line)
+   "This \
+   is" 
+   == "This is" 
+ 
+6. format: (for print out according to format)
+   print '{0} was {1}'.format("me", 1) 
+   (print method ending with , will not print out newline character)
+
+7. Variables are used by just assigning them a value. No declaration or
+   data type definition is used.
+
+8. Statements which go together must have the same indentation.
+
+9. +:
+   3+5 = 8
+   'a' + 'bc' = 'abc'     
+
+10.*:
+   2*3 = 6
+   'ab'*3 = 'ababab' 
+
+11.**:(power)
+   2 ** 3 = 8
+
+12.useful operator: %, >>, <<, &, |, ^, ~, #(less than or equal to),
+   ==(equal), !=(not equal), and, or, not(boolean and, or, not).
+
+13.var = var oper expr  <--> var oper= expr
+   e.g. a *= 3
+
+15.True, False.
+
+16.control flow:
+(1)if a == 1:
+        ...(use indentation)
+   elif a < 1:
+        ...
+   else:
+        ... 
+   There is no switch statement in Python.
+
+(2)while a == 1:
+        ...
+   else:(optional)
+        ...
+
+(3)for i in ...(range(1,5):[1,2,3,4]):
+        ...
+    else:(optional)
+        ...    
+
+(4)break, continue
+
+17.function:
+   definition:
+   def f(a,b):
+        ...
+        return ...(optional, return value's type can be different, default return None)
+
+18.scope of variable:
+   All variables have the scope of the block they are defined in.
+
+19.global:
+   x = 50
+   def f():
+        global x
+        x = 20
+   (x will be changed to 20)
+
+20.varargs parameters:
+   use *x(tuple), and **x(dictionary)
+   def f(a, *x, **p):
+        ...
+
+21:pass(indicate an empty block)    
+
+22.module:
+   e.g. use variable/function in sys module
+   import sys
+   sys.(...)
+   
+   the module should be placed either in the same directory as the
+   program from which we import it, or in one of the directories listed in sys.path
+   (package -> module -> function,global variable -> local variable)
+
+23.use module name equaling '__main__' or not, 
+   to indicate whether it is imported or run itself
+   if __name__ == '__main__':
+        ...
+   else:
+        ...
+
+24.data structure
+(1).list: an ordered sequence of objects(mutable)
+    define: mylist = [... , ... , ...]
+    method: mylist[2], mylist.append, mylist.sort, iterate(for ... in mylist), len(mylist), del mylist[2]
+    notice: the object in list can be different types
+
+(2).tuple: an ordered sequence of objects(immutable)
+    define: mytuple = (... , ... , ...)
+    method: mytuple[2], len(mytuple)
+    notice: single item tuple: mytuple = (2 ,), zero item tuple: mytuple = (). 
+
+(3).dictionary: an unordered collection of key-value pairs
+    define: mydic = { k1:v1, k2:v2, ...}
+    method: mydic[key], del mydic[key], check key in dic(if key in mydic), iterate(for k,v in mydic.items()), 
+            del mydic[key]
+    notice: key should be immutable, value can be mutable
+
+sequence: string, list, tuple: can use [], and [x:y](slicing operation), in ...
+e.g. a = [1,2,3], a[0] = 1, a[-1] = 3, a[:] = [1,2,3], a[1:] = [2,3], a[:2] = [1,2], a[1:2] = [2]
+
+(4).set: an unordered collection of objects
+    define: myset = set([... , ... , ...])  
+    method: ... in myset, myset.copy(), myset.add(...), myset.issuperset(...), myset.intersection(...)
+    
+notice: copy: if you want to make a copy of complex objects(list, tuple, dictionary, set, but not integer), you have to
+use slicing operation to make a copy. assignment(=) only makes the variables pointing to the same object. 
+
+(5).string:
+    define: all objects of class str, mystr = '...'
+    method: mystr.startswith(...), in mystr, mystr.find(...), mystr.join(...)
+
+
+25.object oriented programming
+definition of class, class variable, object variable, init method, class method, inheritance
+class A:
+    class_variable = 0
+    def __init__(self, x, y):
+        self.obj_variable = x      
+        A.class_variable = y
+
+    def f(self, ...):
+        ...
+ 
+    @classmethod
+    def class_method(cls):
+        cls.class_variable = 2
+
+class B(A): 
+    def __init__(self, x, y, z):
+        A.__init__(self, x, y)
+        self.z = z
+
+obja = A(1,2)
+obja.f(...)
+objb = B(1,2,3)
+objb...
+
+26.exception:
+try:
+    ...
+    raise ...(optinally)
+    ...
+except IOError:
+    ...
+except ...:
+    ...
+else:(optionally)   
+    ...
+finally:(optinally)
+    ...
+
+with ... as ...:
+    ...
+
+27.useful function/statement:
+    read from standard input: s = raw_input(...)
+    write to standard output: print ...
+    file operation: f = open(file, 'w'), f.write(...), f.read/readline(...), f.close()
+    read/write object in file: import pickle, f = open(file, 'wb'), pickle.dump(obj, f).
+                               f = open(file, 'rb'), obj = pickle.load(f)
+    length of object: len(...) 
+    assert statement: assert ...
+
+28.a,b = expr
+   interprets the result of the expression as a tuple with two values 
+
+29.lambda
+   A lambda statement is used to create new function objects.
+   It takes a parameter followed by a single expression.
+   The expression becomes the body of the function and the value of this expression 
+   is returned by the new function.
+   lambda x : x+1
