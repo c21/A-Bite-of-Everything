@@ -1,0 +1,123 @@
+1.make alias name for command
+  alias name='cmd'
+  e.g. alias l='ls'
+
+2.get values of all environment variables
+  env
+
+3.size of file system
+  df
+  result is KB.
+  df -h: print readable result.
+
+4.size of one directory
+  du
+  du -s: only report total amount, in KB.
+  du -h: print readable result.
+
+5.set resource limit
+  ulimit 
+  ulimit -a: show all limit
+  ulimit -u: change maximal user processes, e.g. ulimit -u 10240.
+  ulimit -n: change maximal open files for process, e.g. ulimit -n 10240.
+
+6.home directory
+  $HOME or ~     
+
+7.telnet
+  communicate with another host with TELNET protocol.
+  e.g. telnet host port: telnet localhost 8888.
+
+8.source
+  execute the commands in one file.
+  e.g. source ~/.bashrc 
+
+9.curl
+  transfer data from or to web server(by url).
+  curl URL
+  e.g. curl -v http://localhost:8888/hello 
+
+10.route
+  the machine's routing table to transmit IP datagram.
+  route -n: show numerical addresses instead of symbolic.
+
+  e.g. route -n:
+  Destination   Gateway       Genmask       Iface
+  0.0.0.0       216.26.121.1  0.0.0.0       eth0
+  192.168.0.0   0.0.0.0       255.255.0.0   wlan0
+  Destination: the IP addresses of destination.
+  Gateway: the router to transmit IP datagram.
+  Genmask: the netmask of destination IP addresses.
+  Iface: the interface to transmit IP datagram.
+  To transmit IP datagram to IP addresses 192.168.0.0/16, do not transmit to router(Gateway:0.0.0.0),
+  use interface: wlan0.
+  To transmit IP datagram to other IP addresses, transmit to router 216.26.121.1, use interface: eth0.
+
+11.ifconfig
+  check the machine's IP addresses and corresponding MAC address.
+
+12.ping
+  check the connection to IP addresses(by sending ICMP datagram)  
+  ping IP address
+  e.g. ping 127.0.0.1 
+
+13.wgets
+  download files from web.
+  wget -r: download files recursively. e.g. wget -r "http://www.cheng-su.com/assets"
+
+14.file
+  determine file type.
+  file v1.c 
+  ASCII C program text
+
+15.strace
+  trace system calls when a program runs. 
+  strace v1.c
+  strace -e trace=open,close: only trace calls to open and close.
+  strace -t: report the time of system calls
+  strace -f: also trace fork'd children processes.  
+
+16.stat
+  get metadata(information) of file.
+  stat v1.c
+
+17.date
+  print out date.
+  date
+
+18.cal
+  print out calendar
+  e.g. cal [month] [year]
+  cal, cal 2016, cal 5 2016
+
+19.bc
+  a calculator.
+  to set the number N after dot: scale=N
+  operators: +,-,*,/,^,%
+
+20.man
+  a manual.
+  man 1: command/executable
+  man 2: system call
+  man 3: library function 
+  -k: search for keyword, e.g. man -k game, search keyword "game" in manual.
+
+21.sync
+  flush file system buffers to disk.
+  sync 
+
+22.locate
+  find a file by name (search database, not disk, so faster than "find", but maybe not up to date).
+  locate filename(can be keyword of filename)
+  e.g. locate bashrc  
+
+23.ls
+  list directory/file contents.
+  ls directory/file
+  -l(long list)
+  -t(order by time)
+  -u(order by use)
+  -r(reverse the order)
+  -d(list directory)
+  -a(show file starting with .) 
+  -i(list inode)
