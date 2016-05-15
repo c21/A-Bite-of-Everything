@@ -1,0 +1,282 @@
+reference: 
+1.https://ruslanspivak.com/lsbaws-part1/
+2.鸟哥的Linux 私房菜-- 服务器架设篇(第2,10,19,20章) 
+
+
+1.server
+  respond request from others(clients) by using HTTP protocol.
+  receive HTTP request, send back HTTP reponse over TCP.
+
+2.WSGI
+  python web server gateway interface, 
+  a interface between web servers and web frameworks/applications for python.
+  By following WSGI, a pair of server and framework can work together.
+  server: provide start_response function
+  client: provide application function
+  e.g. https://ruslanspivak.com/lsbaws-part2/
+
+
+3.python web framework
+  Pyramid, Flask, Django ... 
+
+4.socket
+  A socket is an endpoint of communication between servers and clients.
+  Two program communicates over network, they have to use socket.
+  A socket pair of TCP: <local IP address, local port, foreign IP address, foreign port> 
+  A socket of TCP: <IP address, port>
+  Every socket is associated with one file descriptor. 
+ 
+5.zombie
+  When fork a child process, child exits and parent doesn't wait for it,
+  The child process's state becomes to zombie, and zombie cannot be killed.
+  Too many zombies will lead to parent running out of max user processes.
+
+6.Ethernet
+  used in local area network(LAN).
+  (related hardware below IP)
+  MAC address: media access control address, 48 bit, used as address in Ethernet.
+  
+   
+7.IP
+  Internet protocol.
+  IPv4: 32 bits address, IPv6: 128 bits address.
+
+  IPv4
+  1.IPv4 address
+    net + host
+    dotted-decimal notation, each decimal represents one byte of 32 bits address.
+    mask indicates the number of bits used for net.
+    e.g. 192.168.0.1/24 (first 24 bits used for net, host ID is 1)
+    192.168.0.0 and 192.168.0.255 cannot be used.
+    192.168.0.0 is Network IP, and 192.168.0.255 is Broadcast IP. 
+
+  2.IP category
+    (1).public IP: can connect to Internet.
+    (2).private IP: cannot connect to Internet by default, but can be used in internal network,
+                    use NAT to connect to Internet.
+
+  3.loopback IP
+    127.0.0.0/8
+    localhost: 127.0.0.1/8
+    To test network service on one local machine, even that machine cannot connect to Internet.
+    To test a server on local machine: http://localhost (localhost: 127.0.0.1/8)     
+
+  4.routing
+    router/gateway: to transmit IP datagram between IP addresses which are not in same net.
+    If two IP addresses are not in the same net(IP address:net+host), then one transmit IP datagram
+    to a router according to its own route table.     
+
+8.TCP/UDP
+  Transmission Control Protocol/User Datagram Protocol
+  port: 16 bits address, to determine the category of application service.
+  TCP/UDP connection: <local IP, local port, remote IP, remote port>      
+  TCP needs acknowledgement between each ports, UDP doesn't need.
+
+  some well-known ports(the value of port is usually smaller then 1024, linux: /etc/services):
+  20,21:FTP
+  23:Telnet
+  22:SSH
+  25:SMTP
+  53:DNS
+  80:HTTP    
+
+9.DNS
+  Domain Name System
+  mapping <hostname, IP address> (DNS server IP: Linux: /etc/resolv.conf, early mapping: /etc/hosts)
+  when typing www.google.com in browser:
+  (1).browser sends to DNS server to request IP address of hostname: www.google.com
+  (2).browser receives IP address from DNS server
+  (3).browser connects to that IP address
+
+  Every DNS server only maintains its domain name, and host names.
+  e.g. www.google.com
+  top level domain:
+  com, org, edu, ...
+  DNS servers(tree structure from root to full domain name):
+                     root
+                  /   |       \   \
+                com   org     edu  ...           
+            /     \
+        google.com  ...
+         /    \          
+       ...     www.google.com
+
+  *elementary requirement to connect to Internet:
+  IP address, netmask, default gateway, DNS(DNS server IP).
+
+10.WWW
+  World Wide Web  
+  A framework to communicate over Internet.  
+  protocol: HTTP(Hypertext Transfer Protocol)
+  software: client uses browser to communicate with server
+  content: HTML(HyperText Markup Language)
+
+  (1).URL
+      uniform resource locator, it is address in WWW.
+      protocol :// hostname/IP[:port] / directory ? query
+
+      e.g. http://localhost:8888/hello?t=96
+      http: protocol
+      localhost: host name
+      8888: port
+      hello: directory path   
+      t=96: query, variable = value.
+      Suppose the root directory for WWW of localhost:8888 is /www,
+      then server returns /www/hello, taking care of query(t=96).
+
+  (2).communication between client and server(HTTP)
+      GET, POST, ...
+      e.g. GET: send URL to server with query(variable,value pair). 
+    
+      a.HTTP Request:
+        e.g.
+        GET /hello HTTP/1.1
+
+        GET: HTTP method
+        /hello: path
+        HTTP/1.1: HTTP version
+
+      b.HTTP Response:
+        e.g.
+        HTTP/1.1 200 OK
+        Content-Type:text/plain
+
+        Hello,World.
+
+        HTTP/1.1: HTTP version
+        200 OK: HTTP status code
+        Content-Type:text/plain: HTTP header
+        Hello,World: body of response
+
+  (3).Apache
+      A HTTP server
+
+
+11.Linux distribution
+  Linux kernel + software and tools
+  e.g. Red Hat, Fedora, Debian, Ubuntu, CentOS.   
+
+12.Markdown
+  Markdown is a text-to-HTML conversion tool.
+
+13.Jekyll
+  http://jekyllrb.com/docs/home
+  Jekyll is a static site generator.
+
+14.HTML
+  HyperText Markup Language.
+  Use tag: <tag attr1="..." att2="..."> ... </tag>
+  attribute(attr1,attr2) is used to provide additional information
+  attribute: style, id(unique for each tag), ...
+
+  HTML element: <tag>content</tag>
+ 
+  an HTML page is divided into two parts: head and body.
+  e.g.(minimal requirement)
+  <!DOCTYPE html>
+  <html>
+  <head> <title>...</title> </head>
+  <body> ... </body>
+  </html>
+
+  HTML tags  
+  declaration of page type (which version of HTML): <!DOCTYPE html> 
+  page: <html> head+body </html>
+  head: <head> ... </head>, it contains underlying information about page,
+        except for the title, others are not displayed in page.
+        title of page: <title> ... </title>
+        CSS style of page: <style> ... </style>, or <link rel="stylesheet" href="1.css">
+        metadata of page: <meta name="..." content="...">
+  metadata: <meta ...>, which must be in head
+  body: <body> (the content to display in page) </body>
+  link: <a href="URL"> ... </a>
+        URL: 
+        1.absolute URL: protocol :// ...
+        2.relative URL: myfolder/myfile.html (starting at root directory)
+  heading: h1-h6, e.g. <h1> ... </h1>
+  paragrph: <p> ... </p>
+  list: ol,ul, 
+        list item: li
+        <ol> <li>a</li> <li>b</li> ... </ol>
+  make a division: <div> ... </div>
+  image: <img src="1.jpg" ...> (no content and end tag)
+  line break: <br> (no content and end tag)
+  bold text: <b>...</b>
+  italic text: <i>...</i>
+  comment: <!-- comment -->
+  table:table
+        one row in table: tr
+        one data(column) in row: td, th
+        <table>
+        <tr>
+          <td>a1</td>
+          <td>b1</td>
+        </tr>
+        <tr>
+          <td>a2</td>
+          <td>b2</td>
+        </tr>
+        </table>   
+  insert JavaScript code:<script> ... </script>
+  entity: display special characters &..., e.g. less than(<): &lt;
+ 
+15.CSS
+  Cascading Style Sheets.
+  a language for adding style to web page.
+
+  (1).inline(for a tag): use style attribute in tag.
+      style="property1:value1 ; property12:value2 ; ..."
+      e.g. <h1 style="color:blue">my heading</h1>
+      property can be:color(for text color, 1.name:red, 2.RGB:(255,0,0), 3.hex:#FF0000) 
+                      font-family(for text font)
+                      font-size(for text size)
+                      text-align(for text alignment)  
+  (2).internal(for a page): define a style tag in head.
+      e.g.<head>
+          <style>
+          h1 {property1:value1; property2:value2;} 
+          </style> 
+          </head> 
+  (3).external(for pages): define a link tag in head, with css in another file.
+      e.g.<head>
+          <link rel="stylesheet" href="my.css">
+          </head>
+
+          my.css: 
+          h1 {color:blue;}
+  
+  CSS file syntax:
+  selector,selector, ... { property:value; property:value; ...}
+  slector type
+  1.element selector (tag, apply on all element with this tag)
+    e.g. p { color:red; }
+    html file: <p>...</p>
+
+  2.id selector (#id, apply on the only element with this id)
+    e.g. #a { color:red; }
+    html file: <p id="a">...</p>
+  
+  3.class slector ([tag].classname, apply on the elements within this classname)
+    e.g. .class1 { color:red; }
+    html file: <p class="class1">...</p>    
+  
+  CSS comment: /* ... */  
+
+16.Markdown
+  a text-to-HTML conversion tool.
+  italic: _text_
+  bold: **text**
+  header: 6 sizes, e.g. header 3: ###text
+  link: 1.inline link: [text](url)  
+        2.reference link: [text1][text_url]  ... [test2][text_url]
+                          [test_url]: url 
+        if url should be image, starting with !. e.g. ![text](url)
+  blockquotes: >text
+  list: 1.unordered list: * term1
+                          * term2
+                          * term3
+        2.ordered list:   1. term1 
+                          2. term2
+                          3. term3
+  line break: 1.hard break: add a new line
+              2.soft break: add two space after one line
