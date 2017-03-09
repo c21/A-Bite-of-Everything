@@ -1,0 +1,69 @@
+Chapter 2 Getting Started with the Kernel
+1.likely, unlikely (P19)
+  optimize branch execution speed.
+
+2.All kernel memory cannot be paged out to disk.
+
+3.*DOS has fixed size stack on user space.
+
+4.source code:
+  include: header files
+
+
+Chapter 3 Process Management
+1.process descriptor
+  struct task_struct (include/linux/sched.h)
+  information about each process.
+  struct *task_struct current (current process's task_struct pointer)
+
+2.doubly linked list
+  struct list_head (include/linux/list.h)
+  general doubly linked list for all structure, only define prev/next pointers.
+  struct list_head {
+    struct list_head *next, *prev;
+  };
+  calculate the offset of struct list_head member in struct A:
+  struct A {
+    ...
+    struct list_head m;
+    ...
+  };
+  struct list_head *p (points to m in one struct A variable).
+  Use: list_entry(p, struct A, m) (include/linux/list.h)
+  * can be implemented as: (struct A*)((char*)p - (unsigned long)&(((struct A*)0)->m));
+  * &(((struct A*)0)->m) get the offset by using NULL pointer to calculate offset.
+
+3.fork
+  clone -> do_fork (kernel/fork.c)
+  Linux uses copy-on-write fork.
+
+4.thread
+  In Linux, there's no special notion of thread.
+  Thread has its own process descriptor, and it may shares address space with others.
+
+Chapter 13 The Virtual Filesystem
+1.The Virtual Filesystem (VFS) is used to define an interface for underlying file system
+  to implement.
+  No OOP in C, so define a structure with field members are function pointers.
+  Underlying file system must define such structure with their function pointers point to
+  their file systems functions.
+
+2.Critical structures.
+  (1).superblock
+  struct super_block (include/linux/fs.h)
+  struct super_operations (s_op in struct super_block) (include/linux/fs.h)
+
+  (2).inode
+  struct inode (include/linux/fs.h)
+  struct inode_operations (i_op in struct inode) (include/linux/fs.h)
+
+  (3).directory entry
+  e.g. /a/b/c/d.txt (a,b,c,d.txt are all directory entries).
+  * Directory entry can be a directory or regular file.
+  struct dentry (include/linux/dcache.h)
+  struct dentry_operations (include/linux/dcache.h)
+ 
+  (4).file
+  struct file (include/linux/fs.h)
+  struct file_operations (include/linux/fs.h)
+ 

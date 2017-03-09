@@ -1,0 +1,241 @@
+1.SQL
+(1).data type: CHAR(n), VARCHAR(n), BIT, BOOLEAN, INT, FLOAT/REAL, DATE, TIME
+  VARCHAR(n): maximal n variable-length string, not necessarily n length.
+  DATE, TIME: string with special format
+
+(2).table declaration
+    (1).create table:
+        CREATE TABLE table-name (
+          attr1-name  attr1-type,
+          attr2-name  attr2-type DEFAULT attr2-value,
+          attr3-name  attr3-type NOT NULL,
+          ... 
+        );
+  
+    (2).delete table:
+        DROP TABLE table-name;
+
+    (3).add attribute:
+        ALTER TABLE table-name ADD attr-name attr-type;
+
+    (4).delete attribute:
+        ALTER TABLE table-name DROP attr-name;
+
+    (5).define key:
+        CREATE TABLE ... (
+          ...
+          PRIMARY KEY (attr1, attr2, ...),
+          FOREIGN KEY (attr3, attr4, ...) REFERENCES table2(attr1, attr2, ...)
+        );
+        * foreign key: the attributes (attr1, attr2, ...) in table2 must be a key of table2.
+
+    (6).define check for attributes' values
+        CREATE TABLE ... (
+          ...
+          CHECK ( attr1 < ... AND ... )
+        );
+        Every time the tuple is inserted or updated, CHECK will be run.
+
+(3).query (a tuple can appear more than once in relation, SQL by default,
+    no duplicate elimination for SELECT, but has duplicate elimination for UNION,
+    INTERSECT and EXCEPT)
+  SELECT attr1, attr2 AS another-name, attr3, SUM(attr4), ...
+  FROM table1, table2, ...
+  WHERE attr3 = ... AND (attr4 LIKE '% movie _')
+  GROUP BY attr1, attr2, ...
+  HAVING attr4 = ... 
+  ORDER BY attr1, attr2, ...;
+
+  order:
+  for each tuple combined from FROM tables
+  (only SELECT and FROM are required for all query, others are optional)
+  (query must be written as the same order : SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY)
+  1. FROM: get tuple
+  2. WHERE: check each tuple (selection)
+  3. GROUP BY: put each tuple into group, and compute aggregation in SELECT
+  4. HAVING: check each group (select group) 
+  5. ORDER BY: sort tuples
+  6. SELECT: produce tuple (projection)
+  
+  *
+  (1).SQL case insensitive, SELECT can be also written as select
+  (2).SELECT can have attribute name, constant, expression. e.g.
+      SELECT attr1, (attr2 * 10) AS newattr, 'myattr'
+      SELECT DISTINCT ... (remove duplicate tuples)
+  (3).LIKE
+      for string attribute, e.g. attr4, we can use LIKE to perform pattern matching
+      % matches any 0 or more chars, _ matches any 1 char.
+  (4).NULL
+      an attribute's value can be NULL, in expression,
+      if arithmetic operations, result is NULL
+      if comparison operattions, result is UNKNOWN (TRUE, FALSE, UNKNOWN)
+      In SELECT, only tuple evaluates to TRUE, will be produced by FROM
+  (5).join
+      To perform join for relations, put relations in FROM, write condition in WHERE
+      e.g.
+      SELECT ...
+      FROM t1, t2
+      WHERE t1.attr1 = t2.attr2
+      SQL will take every possible pair of tuples from t1 and t2, to check condition in WHERE
+  (6).AS
+      ... AS ..., make an alias for attribute, relation.
+  (7).UNION, INTERSECT, EXCEPT
+      get union, intersection, difference between two queries.
+      e.g.
+      ( SELECT ...
+        FROM ...
+        WHERE ... )
+        INTERSECT
+      ( SELECT ...
+        FROM ...
+        WHERE ... )
+  (8).query generates a new relation,
+      query can be used as a constant in WHERE if it only has one tuple and one attribute
+      e.g.
+      SELECT ...
+      FROM ...
+      WHERE att1 = (SELECT ...
+                    FROM ...
+                    WHERE ...)
+  (9).one tuple compares with many tuples in one relation
+      return boolean value
+      s: tuple, R: relation
+      EXISTS R: R is empty or not
+      s IN R: s in R or not
+      s > ALL R: s is greater than all tuples in R (s, R only has one attribute)
+      s > ANY R: s is greater than at least one tuple in R (s, R only has one attribute)
+  (10).JOIN
+      input: two relations, output: one relation
+      a, b: relations
+      a CROSS JOIN b : cartesian product
+      a JOIN b ON a.attr1 = b.attr2 : theta join
+      a NATURAL JOIN b : natural join
+      a (LEFT/RIGHT/FULL) OUTER JOIN b : outer join
+  (11). group by and aggregation
+      combine tuples into group, and compute SUM/AVG/MIN/MAX/COUNT for single scalar
+      attribute. remove group not satisfying HAVING condition
+      (only attributes in GROUP BY can appear as non-aggregation attribute in SELECT and HAVING)
+      SELECT attr1, SUM(attr2), ...
+      FROM ...
+      WHERE ...
+      GROUP BY attr1, ...
+      HAVING attr2 = ... , SUM(attr2) = ...
+ 
+      *if one attribute has NULL, SUM/SUM/AVG/MIN/MAX/COUNT(attr) will ignore NULL
+       if one attribute has NULL, GROUP BY will make a group for NULL
+       if one attribute only has NULL, COUNT(attr) returns 0, other functions return NULL.
+
+(4).table modification
+    (1).insert tuple in relation/table
+        INSERT INTO table(attr1, attr2, ...)
+        VALUES (val1, val2, ...);
+        
+        or use query to insert multiple tuples
+        INSERT INTO table (attr1, ...)
+          SELECT ...
+          FROM ...
+          ...;
+
+    (2).delete tuple in relation/table
+        DELETE FROM table
+        WHERE ...;
+        (if a tuple satisfies the condition in WHERE, it will be deleted from table)
+
+    (3).update tuple in relation/table
+        update tuple's certain attributes according to condition
+        UPDATE table
+        SET attr1 = val1, attr2 = val2, ...
+        WHERE ...;
+        (val# can be expression in SET)
+        (if a tuple satisfies the condition in WHERE, it will be updated according to SET)
+
+2.external sort
+external merge sort (read two sorted runs into memory, merge sort them, write result to disk)
+until there is only one run. Suppose memory buffer has B pages, data has N pages.
+  (1).Read data each B pages a time, sort them, write to disk (generate N/B runs)
+  Repeat (2) until the number of runs is 1.
+  (2).Read B-1 runs (rest 1 page in buffer is for output), merge sort them. 
+  Cost of page I/O (read/write page times): 2N * (log_(B-1)(N/B) + 1) 
+
+2.Query evaluation
+The implementation of relational operators
+1.selection
+  (1).file scan (relation not sorted, no index).
+  (2).binary search for first tuple, then file scan (relation sorted, no index).
+  (3).search in hash index (has index, selection is =)
+  (4).search in B+ tree index (has index)
+
+2.projection
+  (1).sort-based
+      scan relation, project on desired attributes
+      sort to remove duplicate.
+  (2).hash-based
+      scan relation, hash (1st) each tuple into partitions
+      than read each partition into memory to remove duplicate
+      of each partition (use another hash).
+  (3).index-based
+      if we have index for projected attributes, apply projection
+      first on index to remove duplicate.
+
+3.join
+  size (pages) of relation A,B: Ma, Mb
+  (1).nested loop join
+      for each page of relation A
+        for each page of relation B
+          join
+      cost (page I/O): Ma + Ma * Mb
+
+  (2).block nested loop join
+      (buffer size is B, read relation A's (B-2) pages one time,
+      for each A's (B-2) pages, read B page one by one and join)
+      for each block (B-2 pages) of relation A
+        for each page of relation B
+          join
+      cost (page I/O): Ma + (Ma / (B-2)) * Mb
+
+  (3).(block) index nested loop join
+      (Suppose we have an index on relation B for the join attributes)
+      for each tuple of relation A
+        search on index of relation B and join
+      cost (page I/O): Ma + Ma * page_size * index_search
+  
+  (4).sort merge join
+      (only work for equal join)
+      sort relation A and B on join attributes
+      join on sorted relation (merge)
+      cost (page I/O): Ma*logMa + Mb*logMb + Ma + Mb
+
+  (5).hash join
+      (only work for equal join)
+      hash relation A and B on join attributes
+      join each partition of A and B
+
+4.set operator
+  union and difference: A U B, A - B
+  (1).sort
+      sort relation A and B, do set operation when merge.
+  (2).hash
+      hash relation A and B.
+      for each partition of A, hash again (another hash function F).
+        for each partition of B, probe F to do set operation.
+
+  aggregation: min, max, sum, ...
+  (1).sort
+      sort on group by attribute, then scan tuples to do aggregation.
+  (2).hash
+      hash on group by attribute, then scan tuples to do aggregation.
+  (3).index
+      (if we have index on group by attribute)  
+      search on index, then scan tuples to do aggregation.
+
+
+3.query optimization
+  A op1 B op 2 C
+  pipeline temporary relation into next operator, instead of
+  materializing the temporary relation to disk.
+ 
+  (1).do selection and project early (push selection/project down the plan tree).
+      projection x (A join B) -> (projection x A) join (projection x B)
+
+  (2).join can be reordered.
+      A join (B join C) -> (A join B) join C.

@@ -121,3 +121,13 @@
   -d(list directory)
   -a(show file starting with .) 
   -i(list inode)
+
+22.top
+  display the system's execution.
+
+24.objdump
+  display information of executable/object file.
+  -f: display file headers
+  -h: display section headers
+  -x: display all headers
+ 

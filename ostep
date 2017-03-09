@@ -1,0 +1,722 @@
+1.Processor will
+  (1).fetch instruction from memory
+  (2).decode
+  (3).execute 
+
+2.OS is the software to make system easy to use.
+  (virtual machine, standard library, resource manager)  
+
+3.process:
+  It's running program. 
+  It contains machine state: memory, registers(PC/IP,SP...), I/O information
+  Running a process: load code/data into memory, create stack, set up I/O. 
+  Running many processes: time sharing of CPU
+  
+  APIs:
+  fork(): create another process(copy address space) 
+  wait(): wait for child process to finish
+  exec(): run another program in this process (initialize address space)
+  kill(): send signal to process
+  shell run command: fork then redirection and so on, then exec
+     
+4.schedule of processes:
+  mechanism: limited direct execution:
+  (1).restrict operation
+      user mode, kernel mode
+      system call: The API OS provides. It will transfer the control to the OS
+                   to do privileged operations(user mode->kernel mode).    
+                   process -> OS trap handler (trap instruction)
+                   OS -> process (return-from-trap instruction)
+  (2).switch processes
+      time interrupt
+        process -> OS interrupt handler (time is over)
+        OS -> (maybe another)process (return-from-trap instruction)
+      context switch(switch processes)
+        save registers on its kernel stack, restore another process's registers. 
+
+  Process traps in OS, and OS context switches process, both save registers on its kernel stack.
+
+  policy:
+    turnaround time: T(process finishes) - T(process arrives)      
+    response time: T(process first runs) - T(process arrives) 
+  (1).first in, first out (FIFO)
+      *suffer from short-term process waiting for long-term process
+  (2).shortest job first (SJF)
+      run current shortest job and finish it
+      *suffer from short-term process waiting for long-term process
+  (3).shortest time-to-completion first (STCF)
+      when any new job arrives, run the one has shortest time to finish
+      *suffer from long response time for some processes
+      *good for turnaround time  
+  (4).round robin (RR) 
+      run each process within a time slice
+      *suffer from long turnaround time for all processes
+      *good for response time
+  (5).multi-level feedback queue (MLFQ)
+      1.first put process at highest level queue (assume all processes are short term)
+      2.round robin processes at highest level queue (give good response time)
+      3.when process uses up CPU time at one level, decrease to next level queue (short-term->long-term)
+      4.after some time, move all processes to the highest level queue (avoid starvation) 
+      *make effort to decrease turnaround and response time, with no knowledge of execution time of job
+
+
+5.memory of processes:
+  mechanism: address translation:
+  (1).base and bounds
+      base register: start address of process's physical memory
+      bound register: the size of process's physical memory
+      when address translation fault, generate exception to let OS handler to handle
+      HW: use registers to translate address
+      OS: set up registers, handle exception, allocate/deallocate physical memory 
+      *suffer from inefficient memory use, internal fragmentation(lots of memory unused inside of memory: stack,heap)
+
+  (2).segmentation
+      chop up process's address space into several segments(e.g.code,stack,heap...), for each segment, use base and bounds
+      need a bit to indicate the memory grow positive or negative(for stack)
+      HW can use top bits of virtual address to choose which registers to use
+      *suffer from generating many small free memory space, external fragmentation(segments no longer same size)
+      *good for avoiding internal fragmentation
+      
+  (3).paging
+      chop up process's address space into same size pages
+      page table: virtual page number(VPN) -> physical frame number(PFN) for each page table entry(PTE)
+                  valid bit: whether this virtual page is in use 
+                  present bit: whether this physical page is in memory 
+                  protection bit, dirty bit, reference bit.
+      page table base register(PTBR): the start physical address of page table
+      *page table is too large to sit in MMU, so it is in memory(space issue) 
+      *require extra memory reference to get physical frame number from page table(time issue)
+      one extra memory reference for each instruction fetch, for each instruction which reads/writes to memory
+      
+      time issue: translation lookaside buffer(TLB)
+        translate a virtual page number, first look up TLB(in MMU)
+        valid bit: whether this TLB entry is a valid translation(!= page table valid bit)
+        address space identifier: similar to PID, indicate which process owns this entry 
+        handle TLB miss: 1.HW(HW knows format of page table) 2.OS(HW raises exception) 
+     
+      space issue:
+        (1).combine paging and segmentation
+            for each segment, maintain page tables, don't allocate page table entry for unused address space
+            base register: the start address of segment's page table
+            bound register: the valid size of page table
+            *suffer from sparse-used address space(heap), external fragmentation to allocate page tables 
+        (2).multi-level page tables 
+            chop up page table into same size pages, don't allocate page table entry for unused page
+            use page directory to point to valid page of page table
+            page directory: page frame number of page of page table
+                            valid bit: indicate at least one of pages of page table is valid
+            *suffer from more than one extra memory reference
+
+      swap page between memory and disk:
+        swap space: the space on disk for swapping pages
+        page fault: find a page not in physical memory when doing address translation 
+                    let OS handle page fault(disk address stored in page table entry) 
+        page replacement policy:
+        (1).replace the page will be used furthest in the future(optimal)
+            *don't know the knowledge of future use
+        (2).replace the page coming into memory earliest(FIFO) 
+            *suffer from replacing important page
+        (3).randomly replace a page(random)
+            *suffer from replacing important page
+        (4).replace page least recently used(LRU) 
+            *suffer from hard to implement(time complexity)
+        (5).clock algorithm(approximate LRU)
+            use bit: for each page, set to 1 when page is referenced
+            When replcement, start from one page, check use bit. If 1, set to 0. If 0, replace this page.
+
+
+6.thread:
+  new abstraction for a single running process
+  multiple threads share address space, have their own registers(PC,SP,...)
+  *when switching threads, change register, don't change page table
+  *process's stack is split into several stacks
+                    
+  APIs:
+  pthread_t: the type of thread
+  pthread_create(): create thread
+  pthread_join(): wait thread to finish
+   
+  terms:
+  critical section: code that accesses a shared resource
+  race condition: multiple threads enter critical section at same time
+  mutual exclusion: only one thread enters critical section
+  atomicity: the instructions cannot be interrupted
+
+
+7.lock:
+  APIs:
+  pthread_mutex_t: the type of lock
+  pthread_mutex_lock(): acquire the lock
+  pthread_mutex_unlock(): release the lock 
+ 
+  spin lock: spin wait when acquiring the lock
+  
+  (1).test and set(atomic exchange)
+      atomically update a variable with new value and return its old value
+      int test_and_set(int *ptr, int new)
+ 
+      typedef struct { int flag; } lock_t;
+      void init(lock_t *lock) {
+        lock->flag = 0;
+      }     
+      void lock(lock_t *lock) {
+        while(test_and_set(&lock->flag, 1) == 1)
+          ;
+      }
+      void unlock(lock_t *lock) {
+        lock->flag = 0;
+      }
+      *suffer from not fair, inefficient on single processor
+
+  (2).compare and swap
+      atomically compare the value of variable with an expected value.
+      if true, update with new value. else, do nothing. return its old value.
+      int compare_and_swap(int *ptr, int expect, int new)
+     
+      typedef struct { int flag; } lock_t;
+      void init(lock_t *lock) {
+        lock->flag = 0;
+      }  
+      void lock(lock_t *lock) {
+        while(compare_and_swap(&lock->flag,0,1) == 1)
+          ;
+      }
+      void unlock(lock_t *lock) {
+        lock->flag = 0;
+      }
+      *suffer from not fair, inefficient on single processor
+
+  (3).load linked and store conditional
+      load linked: load a variable into register (atomically)
+      store conditional: if no store to variable takes place after lock linked, update variable, return 1, 
+                         else return 0 (atomically)
+      int load_linked(int *ptr)
+      int store_conditional(int *ptr, int new)
+
+      typedef struct { int flag; } lock_t;
+      void init(lock_t *lock) {
+        lock->flag = 0;
+      }
+      void lock(lock_t *lock) {
+        while(load_linked(&lock->flag) || !store_conditional(&lock->flag,1))
+          ;
+      }
+      void unlock(lock_t *lock) {
+        lock->flag = 0;
+      }
+      *suffer from not fair, inefficient on single processor  
+  
+  (4).fetch and add
+      atomically increment a variable's value and return the old value
+      int fetch_and_add(int *ptr)
+    
+      typedef struct { int ticket; int turn; } lock_t;
+      void init(lock_t *lock) {
+        lock->ticket = lock->turn = 0;
+      }   
+      void lock(lock_t *lock) {
+        int myturn = fetch_and_add(&lock->ticket);
+        while(myturn != lock->turn)
+          ;
+      }
+      void unlock(lock_t *lock) {
+        lock->turn++;
+      }
+      *suffer from inefficient on single processor
+      *good for fairness
+
+  yield(): 
+    call yield() when lock acquisition fails, inform OS to do context switch, schedule another process
+    *good to avoid wasting whole CPU time slice
+    *suffer from too many context switches, and not fair
+
+  queue:
+    put thread into sleep queue when lock acquisition fails, 
+    wake up thead in queue when lock release
+    park(): put the thread to sleep
+    unpark(threadID): wake the thread with threadID
+    setpark(): indicate the thread is going to sleep
+    typedef struct { int flag; int guard; queue_t *q;} lock_t; 
+
+
+8.condition variable
+  it is a queue that threads can wait on
+
+  APIs:
+  pthread_cond_t: the type of condition variable
+  pthread_cond_wait(pthread_cond_t*, pthread_mutex_t*): 
+    wait on the condition variable, before call wait, a lock must be held. 
+    in wait, that lock is released. when the thread is woken up, acquire the lock again before return.
+  pthread_cond_signal(pthread_cond_t*): wake up a thread from condition variable
+
+  (1).producer/consumer problem
+
+      mutex_t lock;
+      cond_t empty, full;
+      int num = 0;
+
+      void producer(int loops) {
+        for(int i = 0; i < loops; i++) {
+          mutex_lock(&lock);
+          while(num == MAX)
+            cond_wait(&full, &lock);
+          ...
+          cond_signal(&empty);
+          mutex_unlock(&lock);                               
+        } 
+      }  
+      void consumer(int loops) {
+        for(int i = 0; i < loops; i++) {
+          mutex_lock(&lock);
+          while(num == 0)
+            cond_wait(&empty, &lock);
+          ...
+          cond_signal(&full);
+          mutex_unlock(&lock);
+        }
+      }
+
+9.semaphore
+  it is an object with integer and queue
+ 
+  APIs:
+  sem_t: the type of semaphore
+  sem_init(sem_t*,int a,int b): initialize the integer to value b
+  sem_wait(sem_t*): decrement the value of integer, if the value is negative, wait on queue
+  sem_post(sem_t*): increment the value of integer, wake up one thread on queue
+
+  (1).lock
+      sem_t s;
+      sem_init(&s, 0, 1);
+      void lock(lock_t *lock) {
+        sem_wait(&s);
+      }
+      void unlock(lock_t *lock) {
+        sem_post(&s);
+      }          
+
+  (2).producer/consumer problem
+      sem_t empty, full, lock;
+      sem_init(&empty, 0, MAX);
+      sem_init(&full, 0, 0);
+      sem_init(&lock, 0, 1);
+
+      void producer(int loops) {
+        for(int i = 0; i < loops; i++) {
+          sem_wait(&empty);
+          sem_wait(&lock);
+          ...
+          sem_post(&lock);
+          sem_post(&full);
+        }
+      }
+      void consumer(int loops) {
+        for(int i = 0; i < loops; i++) {
+          sem_wait(&full);
+          sem_wait(&lock);
+          ...
+          sem_post(&lock);
+          sem_post(&empty);
+        }
+      }  
+  
+  (3).reader/writer problem
+      multiple readers can read at the same time, only one writer can write.
+      when reading, no writing and vice versa.
+
+      sem_t rlock, wlock;
+      int num = 0;
+      sem_init(&rlock, 0, 1);
+      sem_init(&wlock, 0, 1); 
+
+      void read_lock() {
+        sem_wait(&rlock);
+        num++;
+        if(num == 1)
+          sem_wait(&wlock);
+        sem_post(&rlock);
+      }  
+
+      void read_unlock() {
+        sem_wait(&rlock);
+        num--;
+        if(num == 0)
+          sem_post(&wlock);
+        sem_post(&rlock);
+      }
+
+      void write_lock() {
+        sem_wait(&wlock);
+      }
+  
+      void write_unlock() {
+        sem_post(&wlock);
+      }
+
+  (4).use lock and condition variable to build semaphore
+      typedef struct { mutex_t lock; cond_t c; int n; } sem_t;
+      
+      void sem_init(sem_t *s, int a, int b) {
+        s->n = b; 
+      }  
+      
+      void sem_wait(sem_t *s) {
+        mutex_lock(&s->lock);
+        while(s->n <= 0)
+          cond_wait(&s->c, &s->lock);  
+        s->n--;
+        mutex_unlock(&s->lock);
+      } 
+
+      void sem_post(sem_t *s) {
+        mutex_lock(&s->lock);
+        s->n++;
+        cond_signal(&s->c);
+        mutex_unlock(&s->lock); 
+      }
+
+10.concurrency bug
+  deadlock: deadlock occurs when threads hold some locks, but wait for each other's locks to release
+  conditions for deadlock:
+  (1).mutual exclusion: threads need exclusive access of resources(e.g. use lock)
+  (2).hold and wait: threads hold some resources(e.g. a lock), and wait for other resources(e.g. another lock)  
+  (3).no preemption: resources(e.g. lock) cannot be removed from threads are holding them  
+  (4).circular wait: there is a cycle of threads that A holds resources that B needs 
+  If any of conditions are not met, deadlock cannot occur.
+  prevent deadlock:
+  (1).mutual exclusion: instead of using lock, use special hardware instruction
+  (2).hold and wait: acquire all locks atomically(acquire a common lock first)
+  (3).no preemption: trylock()(if lock is free, grab the lock. else return -1, but not wait). 
+                     use trylock to release previous locks if current lock cannot be acquired
+  (4).circular wait: specify the order of lock acquisition
+
+11.device
+  (1).structure
+  interface (3 registers: status, command, data)
+  internal (implementation of device)  
+  
+  how to interact with this device:
+  check status register (polling: if repeatedly reading status register)
+  write to data and command registers (programmed I/O: if CPU is involved with this step)
+  check status register
+
+  OS reads/writes device:
+  1.I/O instruction: explicitly read/write device register
+  2.memory-mapped I/O: make device register available as memory location, use load/store
+
+  *Polling is inefficient, wasting CPU time.
+  solution: interrupt. Process goes to sleep when device is busy.
+            When device is ready, it raises an interrupt, OS wakes up that process.
+            *Sometimes context-switch is expensive.
+
+  *Programmed I/O: CPU copies data from memory to disk, wasting CPU time.
+  solution: direct memory access(DMA). A device to transfer data between memory and devices.
+            When it finishes, raising an interrupt to notify OS.    
+      
+  (2).device driver
+  A software in OS, transfer generic block read/write from file system, to
+  specific device read/write, because different devices may have different interface.
+  Different devices have different device drivers.   
+
+12.hard disk drive
+  A device
+  (1).structure
+  interface: read/write an array(each element is a sector: 512B)
+  internal: surface -> track -> sector, disk head/arm. Read/write includes disk head seek, and disk rotation.    
+            read/write time: seek(find track), rotation(find sector), transfer(read/write data by rotation).
+
+  RPM: rotations per minute.
+  rate of I/O: (size of data) / (finish time) 
+  track skew: change tracks layout, to help sequential read/write across track, not wait too much for rotation.
+  multi-zoned: outer tracks have more sectors than inner tracks.
+  track buffer/cache: memory to cache disk data.
+  write back: disk reports finish when writing data to its memory.
+  write through: disk reports finish when writing data to its device.       
+
+  (2).scheduling
+      OS/disk controller policy to order read/write operations, 
+      try to follow shortest job first for best turnaround time.
+      a.shortest seek time first (SSF)  
+        *suffer from starvation of requests which are not in current track.
+        *suffer from ignoring rotation time.
+      b.elevator algorithms 
+        1.SCAN: move from inner track to outer(a sweep), and come back.
+          *good for fairness to delay late coming requests which are in near-by tracks.
+          *suffer from starvation of requests which are not in current tracks.
+          *suffer from ignoring rotation time.
+        2.F-SCAN: freeze the queue of requests in a sweep
+          *good for fairness to better delay late coming requests which are in near-by tracks.
+          *suffer from ignoring rotation time.
+        3.C-SCAN: only move in one direction (e.g. inner to outer).
+          *good for fairness of inner and outer tracks.
+          *suffer from ignoring rotation time.
+      c.shortest positioning/access time first (SPTF/SATF)
+        position/access time = seek + rotation time
+        *good for also considering rotation time.     
+
+      I/O merging: merge near-by requests into one.
+      work-conserving: when have an I/O request, send it to disk.
+      non-work-conserving: when have an request, wait for a while, send them to disk, may have better requests when waiting.
+
+
+13.Redundant Arrays of Inexpensive Disks (RAID)
+  A group of disks with memory and processors (hope to be faster, larger, more reliable than a single disk).
+  
+  structure
+  interface: read/write an array (as one disk)
+  internal: transfer a I/O request from file system, to multiple I/O requests.
+ 
+  (1).level 0 (striping)
+  spread blocks across disk in a round-robin way.
+  e.g.  
+  Disk 0   Disk 1   Disk 2   Disk 3
+    0       1         2       3
+    4       5         6       7
+    ...
+  0,1,2,3 blocks are in the same stripe. If block size is 4KB, chunk size is 4KB.      
+
+  Assume N disks, each has B blocks, single-block read/write: T,
+  transfer speed: S (sequential workload), R (random wordload).
+
+  capacity: N*B 
+  failure tolerance: 0
+  single-block read/write(time): T
+  sequential read/write: N*S
+  random read/write: N*R
+
+  (2).level 1 (mirroring)
+  make more than one copy of each block.
+  e.g.
+  Disk 0   Disk 1   Disk 2   Disk 3
+    0       0         1       1
+    2       2         3       3
+    ...  
+ 
+  capacity: N*B/2
+  failure tolerance: 1
+  single-block read/write(time): T
+  sequential read/write: N*S/2
+  random read: N*R
+  random write: N*R/2
+
+  (3).level 4 (parity) 
+  make a disk to be XOR result of all other disks.
+  e.g.
+  Disk 0   Disk 1   Disk 2   Disk 3
+    0       1         2       P0 = (block 0 ^ 1 ^ 2)
+    3       4         5       P1
+    ...            
+  the number of bit 1 in one row is even.
+ 
+  capacity: (N-1)*B
+  failure tolerance: 1
+  single-block read(time): T
+  single-block write(time): 2T (two read, two write with subtractive parity method)
+  sequential read/write: (N-1)*S
+  random read: (N-1)*R
+  random write: R/2 (two read, two write with subtractive parity method) 
+
+  *for random write, the parity disk is bottoleneck.
+
+  (4).level 5 (rotating parity)
+  rotate parity block across disks, to address the parity disk bottoleneck of level 4.
+  e.g.
+  Disk 0   Disk 1   Disk 2   Disk 3
+    0       1         2       P0
+    4       5         P1      3
+    8       P2        6       7
+    P3      9         10      11
+    ...
+  *rotation direction: -->
+
+  capacity: (N-1)*B
+  failure tolerance: 1
+  single-block read(time): T
+  single-block write(time): 2T
+  sequential read/write: (N-1)*S
+  random read: N*R (because using all disks, distributing parity blocks)
+  random write: N*R/4
+
+14.file/directory
+  file/directory: an array of bytes.
+  directory: a kind of file, whose content is mapping <name, inode>
+ 
+  APIs (use file descriptor):
+  creat(char*): create a file   
+  open(char*, int): open/create a file
+  read(int, void*, size_t): read a file
+  write(int, void*, size_t): write a file
+  lseek(int, off_t, int): set file offset
+  close(int): close the connection of the file descriptor with that file  
+
+  fsync(int): force write() to disk (OS will buffer write())
+  rename(char*, char*): rename a file
+  fstat(int, struct stat*), stat(char*, struct stat*): get information(metadata) of file
+  unlink(char*): delete a file (remove this name entry, decrement reference count, if zero, delete file) 
+  link(char*, char*): make a hard link of file (add an entry of new name at that directory, pointing to the old name's inode)
+
+  *symbolic/soft link: add a new file, whose content is the pathname of old file. 
+  *The advantage of soft link over hard link is that soft link can link directory, and file in another file system. 
+
+  mkdir(char*, mode_t): make a directory
+  opendir(char*): open a directory
+  readdir(DIR*): read a directory
+  closedir(DIR*): close a directory
+  rmdir(char*): delete a directory, which must be empty
+          
+15.very simple file system (VSFS)
+  structure:
+  an array of block(e.g. 4KB)
+  super-block   inode-bitmap    data-bitmap   inode-block   data-block
+  
+  inode:
+  file type, file size, time, pointers to data blocks(multi-level index: indirect pointers).
+  *why multi-level index: most files are small.
+  
+  directory:
+  a linear list of mapping <name, inode>.
+  
+  speed up:
+  read cache
+  write buffer  
+   
+16.fast file system (FFS)
+  *VSFS suffers from disk positioning time (VSFS treats disk as random access memory wrongly).
+  *VSFS does not place related files together(e.g. file's inode and data block).
+
+  structure:
+  an array of block(e.g. 4KB), group near-by blocks into a group. for each group:
+  super-block(a copy)   inode-bitmap    data-bitmap   inode-block   data-block  
+  
+  policy:
+  keep related stuff together.
+  for directory: put its inode and data to a group with low # of directories (balance directories across groups), 
+                 and high # of free inodes (be able to allocate files).  
+  for file: put its inode and data to a group with its parent directory. 
+  
+  *large file exception:
+  Because large file may occupy whole group, spread large file in different groups.
+  
+17.crash of file system.
+  how to insure consistency when there is a crash of updating file system.
+  (1).file system checker
+  check and fix inconsistency when machine rebooting.
+  fsck.
+  *suffer from too slow to check whole disk, even though only updating a small part of disk.
+ 
+  (2).journaling (write-ahead logging)
+  write log before updating disk. When system crashes and reboots, lookup log to redo job.
+  e.g. Linux ext3
+  disk is divided into groups:
+  super-block   journal   group0    group1    group2  ...
+  *any block update is atomically.
+  *transcation begin/end blocks contain transcation's id.
+  *metadata: bitmap, inode
+
+      a.data journaling 
+      1.journal write: write transaction begin block, data and metadata blocks to journal.
+      2.journal commit: write transcation end block to journal.
+      3.checkpoint: write journal to final truly locations on disk.
+      4.free: mark the transcation in journal to be free to use again.
+    
+      *suffer from writing data in journal and truly locations twice.
+  
+      b.metadata journaling
+      1.data/journal metadata write: write data to final locations.
+                                     writetranscation begin block, and metadata blocks to journal.
+      2.journal commit
+      3.checkpoint
+      4.free     
+ 
+18.log-structured file system (LFS)
+  write update(data, metadata, inode map) sequentially in new locations, never overwrite old locations.
+  *optimize for writing.
+  *have to do garbage collection of old version of data and metadata.
+
+  inode map: mapping <inode number, disk address of inode>
+  checkpoint region: mapping <inode number, disk address of inode map>
+  segment summary block: for each data block: mapping <inode number, its offset>
+
+  read a file: checkpoint region -> inode map -> inode -> data  
+ 
+19.virtual machine monitor (VMM)
+  serve as a layer between OSes and hardware.
+ 
+  (1).virtualize CPU
+  process system call -> VMM calls OS trap handler -> OS trap handler does things, and wants to return-from-trap
+  -> VMM does true return-from-trap
+
+  process: user mode
+  OS: less privileged mode
+  VMM: kernel mode   
+
+  (2).virtualize memory
+  process virtual address TLB miss -> VMM calls OS TLB handler -> OS gets <VPN,PFN> from per-process page table, and 
+  wants to update TLB-> VMM gets <PFN, MFN>, updates TLB with <VPN, MFN> instead -> OS issues return-from-trap
+  -> VMM does trun return-from-trap 
+
+  TLB: <VPN, MFN>, not <VPN, PFN>
+
+  process: virtual memory
+  OS: physical memory    
+  VMM: machine memory (truly physical memory) 
+
+  per-process page table: <virtual page number, physical frame number>
+  per-OS page table: <physical frame number, machine frame number>
+
+20.network file system (NFS)
+  a distributed file system. Server stores data on its disk, clients request data 
+  from server via network.
+  *why use this file system: 1.sharing of data across clients 2.easily centralized administration of data
+  3.security of data, easily protect data given few servers.
+
+  file handle: volume identifier, inode number, generation number.
+  protocols under general API(read,write,...):
+  nfs_lookup(directory file handle, file name)  
+  nfs_read(file handle, offset, count)  
+  nfs_write(file handle, offset, count, data) 
+
+  cache consistency problems:
+  *to improve performance, the client has cache and buffer.
+  1.update visibility: C1 overwrites file in its buffer, but C2 will read the old file.
+    solution: flush-on-close, when close the file, flushes buffer to server.
+  2.stale cache: C1 reads a file, then stores it in cache. C2 overwrites it. C1 reads file again.
+    solution: when open the file, check the time of modification, by issuing a function: GETATTR. 
+    
+21.flash-based solid-state storage device (flash-based SSD)
+  a persistent device, built from transistors, like memory and CPU.
+  block: e.g. 128 KB
+  page: e.g. 4KB  
+ 
+  operations:
+  read a page
+  write a page: may erase a block (change pages states to ERASED, change all bits to 1), 
+                then program a page (change pages state from ERASED to VALID)
+
+  *wear out: frequent erase and program can make the block unusable
+ 
+  write amplification: (bytes written to physical blocks) / (bytes written to logical blocks)
+ 
+  flash translation layer(FTL): translation from read/write requests on logical blocks, to
+                                read/erase/program requests on physical blocks.
+  1.direct mapped FTL: logical page N -> physical page N 
+    *suffer from high cost of write, and wear out
+  2.log-structured FTL: always write to the next free block, maintain a mapping table from logical page to physical page.
+    *solve the large size of mapping table: per-page mapping + per-block mapping (hybrid mapping)
+
+    garbage collection of this block: read live pages, write live pages to new free block, erase this block  
+    wear leveling: spread the write work across all blocks evenly, make all blocks wear out at the same time
+ 
+?RAID level 5 random write: file-raid.pdf P14 
+
+?make and mount a file sytem: file-intro.pdf P16 
+
+?Thus, when mounting a file system, the operating system will read
+the superblock first, to initialize various parameters, and then attach the
+volume to the file-system tree. When files within the volume are accessed,
+the system will thus know exactly where to look for the needed on-disk
+structures. file-implementation.pdf P4
+
+
+http://pages.cs.wisc.edu/~remzi/Classes/537/Fall2013/OldExams/11-fall-final-solutions.pdf: 1(4), 4(8), 5(1,4), 6, 7, 8, 10
+how to use read/wrte/lseek/open/close function 
