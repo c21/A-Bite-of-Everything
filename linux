@@ -41,6 +41,250 @@ Chapter 3 Process Management
   In Linux, there's no special notion of thread.
   Thread has its own process descriptor, and it may shares address space with others.
 
+
+Chapter 4 Process Scheduling
+1.process's priority to schedule.
+  (1).nice value ([-20,19] default 0): -20 highest priority, 19 lowest priority.
+  (2).real-time priority ([0,99]): for real-time processes, 99 highest priority, 0 lowest priority.
+
+2.Linux scheduler (since 2.6.23)
+  Completely Fair Scheduler (CFS) (kernel/sched_fair.c)
+  The proportion of processor time that any process receives is determined only by the
+  *relative difference in niceness (nice value)* between it and the other runnable processes.
+  *scheduler: pick the process with the smallest vruntime (virtual runtime in (1)).
+  (1).time accouting (scheduler entity structure)
+  struct sched_entity (linux/sched.h)
+  calculate hom much time one process has run (struct task_struct has one field: se). 
+  virtual runtime (u64 vruntime in struct sched_entity)
+    running time normalized by the number of runnable processes. 
+
+  (2).process selection
+  pick the process with the smallest vruntime (virtual runtime in (1)).
+  All runnable processes are stored in one red-black tree with key as virtual runtime.
+
+  (3).scheduler entry point
+  schedule() -> pick_next_task() (kernel/sched.c) 
+
+Chapter 5 System Calls
+1.system call number
+  Each system call defined with a number.
+  all registered system calls stored in system call table (array of function pointer)
+  sys_call_table (e.g. arch/x86/kernel/syscall_64.c)
+  When application library function calls system call, put system call number
+  in eax register, let system call handler know the system call number. 
+  When system call returns, the return value is also stored in eax register.
+
+2.system call handler
+  system_call() (e.g. arch/x86/kernel/entry_64.S)
+  According to the eax register value, system_call() (system call handler ) will
+  call corresponding system call by indexing into system call table: call *sys_call_table[eax]
+
+3.define a system call
+  (1).use macro SYSCALL_DEFINE...(function_name, arg1, arg2, ...) {} to define system call
+      (e.g. kernel/sys.c).
+  (2).add an entry (system call function_name) in system call table
+      (e.g. arch/x86/kernel/syscall_table_32.S).
+      *The system call table is per architecture. 
+  (3).add the system call number
+      (e.g. arch/x86/include/asm/unistd_32.h)
+  (4).add a wrapper for application to call (e.g. in C), by using
+      #define __NR_foo 222  # 222 should be system call number defined in (3).
+      __syscall0(long, foo) # __syscallN, N is the number of system call's arguments.
+
+
+Chapter 6 Kernel Data Structures
+1.linked list
+circular doubly linked list
+struct list_head (include/linux/list.h)
+
+2.queue (FIFO)
+circular queue with an array of bytes, size, one pointer (offset) to enqueue, one pointer (offset)
+to dequeue. Don't need lock if only one reader and one writer (update in,out member variable
+respectively when enqueue and dequeue).
+
+(include/linux/kfifo.h, kernel/kfifo.c)
+struct kfifo {
+  unsigned char *buffer;  /* the buffer holding the data */
+  unsigned int size;      /* the size of the allocated buffer */
+  unsigned int in;        /* data is added at offset (in % size) */
+  unsigned int out;       /* data is extracted from off. (out % size) */
+};
+
+operations: enqueue and dequeue, in and out keep increasing, (in-out) is the length of buffer.
+
+*judge whether one number (n) is power of 2
+ n logical add with n-1
+ n && !(n && (n-1))
+
+*calculate x % n efficiently (n is power of 2)
+ x && (n-1)
+
+3.map
+struct idr (include/linux/idr.h, lib/idr.c)
+
+4.binary tree
+self-balancing binary search tree: red-black tree.
+struct rb_node (include/linux/rbtree.h, lib/rbtree.c)
+
+Chapter 7 Interrupts and Interrupt Handlers
+The interrupt handler for a device is part of the device’s driver — the kernel code that manages the device.
+Execution in interrupt handler cannot be interrupted by its own interrupt by default.
+irq_handler_t (include/linux/interrupt.h)
+
+1.register an interrupt handler
+device driver registers an interrupt handler from kernel for its interrupt
+on a specific interrupt line (interrupt number). 
+request_irq (include/linux/interrupt.h)
+
+2.free an interrupt handler
+not handle the interrupt anymore.
+free_irq (include/linux/interrupt.h)
+
+3.disable/enable all interrupts/a specific interrupt line
+local_irq_disable, local_irq_enable
+disable_irq, enable_irq
+
+* Because interrupts interrupt other executing code (processes, the kernel itself, and
+even other interrupt handlers), they must execute quickly. However, there is a lot of
+work to do. The kernel divides the work of processing interrupts into two halves.
+The interrupt handler is the top half.
+
+* procfs
+procfs is a in memory file system mounted at /proc.
+Each Interrupt information is stored in /proc/interrupts.
+
+
+Chapter 8 Bottom Halves and Deferring Work
+botton half: the deferred portion of interrupt processing, not disable the all or
+specified interrupt line (botton half function doesn't disable interrupt).
+
+1.softirq
+It is statically allocated function pointers (the functions to execute botton half) array
+(each function is a softirq handler).
+softirq is used to implement tasklet.
+softirq_vec (kernel/softirq.c)
+struct softirq_action (include/linux/interrupt.h)
+
+register softirq handler (set function pointer in statically allocated function pointers array)
+open_softirq (kernel/softirq.c)
+
+raise softirq
+set the corresponding bit in one interger (mask) to be 1, let __do_softirq execute
+the softirq handler once. softirq is often raised in interrupt handler (top half sets
+the corresponding bottom half, to let the bottom half be executed later).
+raise_softirq (kernel/softirq.c)
+
+execute softirqs
+__do_softirq() (kernel/softirq.c), check each function in the statically allocated array
+need to be executed or not (raised), and execute each function that needs to be executed (raised
+function).
+
+2.tasklet
+built on top of softirq, the same softirq can run concurrently at different processors,
+but the same tasklet cannot (tasklet has stronger locking).
+tasklets are just 2 types of softirq (HI_SOFTIRQ and TASKLET_SOFTIRQ), the same type of 
+tasklet (e.g. HI_SOFTIRQ) is executed one by one in one linked list (e.g. tasklet_hi_vec).
+The handler of tasklets - HI_SOFTIRQ, TASKLET_SOFTIRQ are tasklet_hi_action, tasklet_action
+respectively. The handler (e.g. tasklet_action) will execute the tasklets on the linked list
+one by one.
+
+struct tasklet_struct (include/linux/interrupt.h)
+
+3.work queue
+work queue is to do the bottom half work in kernel thread. work queue's function can sleep,
+while softirq/tasklet function cannot sleep.
+(kernel/workqueue.c)
+
+
+Chapter 9 An Introduction to Kernel Synchronization
+lock contention: a lock is currently used by a thread, but another thread is trying to
+acquire (contend) it.  
+Lock granularity (the size of data a lock protects) is often coarse (protect a big size of data)
+at first, if there is a high degree of lock contention (a lot of threads try to acquire the lock
+at the same time), then the lock granularity is changed to more fine-grained.
+
+
+Chapter 10 Kernel Synchronization Methods
+(architecture-specific, kernel defines interface, each architecture implements)
+1.atomic operations on one integer
+atomic_t (include/linux/types.h)
+atomic_add, atomic_sub, etc. (include/asm-generic/atomic.h)
+In x86, implemented with a lock prefix of add/sub instructions (arch/x86/include/asm/atomic_32.h)
+
+2.atomic operations on one bit
+(include/asm-generic/bitops/atomic.h)
+e.g. set_bit(int nr, void *addr)
+Atomically set the nr-th bit starting from addr.
+
+3.spin lock
+One thread holds lock, other threads run in the loop to busy-wait the lock.
+spinlock_t (include/linux/spinlock.h)
+spin_lock, spin_unlock, spin_trylock, spin_is_locked, etc.
+reader-writer lock (include/linux/rwlock.h)
+
+4.semaphore
+semaphore (include/linux/semaphore.h)
+down (i.e. P(), sem_wait(), ...), up (i.e. V(), sem_signal(), ...), etc (kernel/semaphore.c)
+reader-writer semaphore (include/linux/rwsem-spinlock.h)
+
+5.mutex
+the sleeping lock (not spin lock), a speical case of semaphore.
+
+completion variable (include/linux/completion.h)
+
+sequential lock (include/linux/seqlock.h)
+  (another reader-writer lock, favor writer over reader, no lock on reader side, sequential
+  lock maintains a sequence number, each writer lock/unlock operation increments the sequence
+  number, reader reads the sequence number, reads the data, then reads the sequence number
+  again to make sure sequence number is not changed by writer) 
+
+barrier (include/asm-generic/system.h)
+compiler and CPU will reorder the memory read/write instructions for optimization, barrier
+is used to not let compiler and CPU do the reordering.
+rmb(): no read before rmb() will be reordered to run after rmb(). no read after the rmb()
+       will be reordered to run before rmb().
+wmb(): no write before wmb() will be reordered to run after wmb(). no write after the wmb()
+       will be reordered to run before wmb().
+mb():  no read/write before mb() will be reordered to run after mb(). no read/write after the mb()
+       will be reordered to run before mb().
+
+
+Chapter 11 Timers and Time Management
+1.frequency of timer interrupt
+  architecture-dependent
+  HZ (include/asm-generic/param.h)
+  time interrupt happens every (1/HZ) second.
+  global variable: jiffies (the number of ticks (timer interrupt) since system boots) (include/linux/jiffies.h)
+
+2.timer interrupt handler
+  the architecture-independent part: tick_periodic (kernel/time/tick-common.c)
+  update jiffies, raise any expired timers (expired timers then run in bottom half), schedule
+  * volatile keyword: instruct the compiler to reload the variable on each access from main memory and
+    never alias the variable’s value in a register.
+
+
+Chapter 12 Memory Management
+1.physical page
+  the structure to record each physical page information
+  page (include/linux/mm_types.h)
+  kernel divides the physical pages into zones (for DMA, normal, ...) (include/linux/mmzone.h)
+  allocate/deallocate contiguous physical pages: alloc_pages, free_pages, ... (include/linux/gfp.h)
+  allocate/deallocate contiguous physical bytes (not necessarily pages): kmalloc, kfree, ... (include/linux/slob_def.h)
+  
+2.slab layer
+  an allocation/deallocation cache per data structure (one layer above alloc_pages/free_pages).
+  The purpose is to do more efficient allocation/deallocation of physical memory, instead of using
+  alloc/free_pages directly.
+
+  For each kind of data structure, slab layer can have a cache (struct kmem_cache in mm/slob.c).
+  Each cache has several slabs (struct slab in mm/slab.c), each slab has several contiguous
+  physical pages to store object of one certain data structure. Each slab is in one of states - empty, partial and full.
+  create a cache: kmem_cache_create
+  destroy a cache: kmem_cache_destroy
+  allocate an object: kmem_cache_alloc
+  deallocate an object: kmem_cache_free
+
+
 Chapter 13 The Virtual Filesystem
 1.The Virtual Filesystem (VFS) is used to define an interface for underlying file system
   to implement.
@@ -66,4 +310,159 @@ Chapter 13 The Virtual Filesystem
   (4).file
   struct file (include/linux/fs.h)
   struct file_operations (include/linux/fs.h)
+
+
+Chapter 14 The Block I/O Layer
+1.descriptor (metadata) of file system block
+  block-physical page mapping
+  struct buffer_head (linux/buffer_head.h)
+
+2.block I/O
+  one I/O operation for multiple blocks
+  struct bio (include/linux/bio.h)
+  * scatter-gather I/O
+
+3.request
+  one request consists of multiple block I/O (bio), issued from file system
+  to device.
+  struct request (include/linux/blkdev.h) 
+
+  the list of requests to finish
+  struct request_queue (include/linux/blkdev.h)
+
+4.I/O schedulers
+  merge and sort requests in request queue to minimize disk seek.
+  (1).Linus elevator
+      new request should be merged with existing one whose sectors are adjacent.
+      o.w., new request should be inserted into a position in a sorted sectors order
+      (have a time threshold to decide insertion on either sorted position or tail of queue,
+      to mitigate starvation of requests on far away sectors).
+      (block/elevator.c)
+
+  (2).deadline I/O scheduler
+      to mitigate starvation of Linus elevator
+      3 queues: sorted queue (acted as Linus elevator), read FIFO queue, write FIFO queue.
+      New request is inserted into sorted queue as Linus elevator, and inserted into the end of 
+      read/write FIFO queue. Each request is associated with a deadline to execute (time).
+      Get head of sorted queue to execute normally, if deadline of read/write FIFO queue expires,
+      get head of read/write FIFO queue to execute.
+      (block/deadline-iosched.c)
+  
+      anticipatory I/O scheduler
+      to avoid too many read requests in deadline I/O scheduler to increase disk seeks,
+      after read request is executed, scheduler waits for a certain time then to execute other requests.
+      Hopefully, during the waiting, another read request of near sectors is issued, and disk seek is
+      not needed.
+      (block/as-iosched.c)
+
+  (3).complete fair queuing (CFQ) I/O scheduler
+      each process has a sorted queue (acted as Linus elevator), scheduler executes the requests
+      of each process's queue in a round robin way, to maintain fairness among processes.
+      default I/O scheduler in Linux
+      (block/cfq-iosched.c)
  
+  (4).noop I/O scheduler
+      only perform merge of new request (no insertion in sorted order) in request queue.
+      don't care about disk seek, good for random-access devices such as flash.
+      (block/noop-iosched.c)
+
+
+Chapter 15 The Process Address Space
+1.memory descriptor
+  metadata of each process's virtual memory
+  struct mm_struct (include/linux/mm_types.h)
+
+  * check one process's virtual memory layout (e.g. pid of process is 50)
+    (1).cat /proc/50/maps
+    (2).pmap 50
+
+2.page table
+  Linux uses 3 level page tables
+  page global directory -> page middle directory -> page table entry
+  * in kernel 2.6, page table can be shared and copy-on-write between parent and child via fork().
+
+
+Chapter 16 The Page Cache and Page Writeback
+cache of disk data as page in memory.
+1.write caching
+  when writing the data
+  (1).no-write cache: write to disk, invalidate cache.
+  (2).write-through cache: write to disk and cache.
+  (3).write-back cache: write to cache at once, and then write to disk later.
+  Linux uses write-back cache. Writes to disk can be coalesced and executed in bulk later,
+  this improves the performance because writing to disk is slow.
+
+2.cache eviction
+  two-list strategy (LRU/2, a modified version of LRU).
+  two lists: active list, inactive list.
+  Each list stores the page in memory in LRU order.
+  Pages are moved to active list, when they are accessed and they are already in inactive list.
+  Evict the least recently used page in inactive list.
+  If the size of active list becomes big, the least recently used pages in active list is moved to
+  inactive list. 
+
+3.the physical pages (and other information) of one file
+  struct address_space (include/linux/fs.h)
+
+Chapter 17 Devices and Modules
+device drivers are in linux source: drivers/
+1.devices
+  (1).block device (often mounted as a file system)
+  (2).character device
+  (3).network device
+  *pseudo device: not physical device, e.g. /dev/random, /dev/urandom, /dev/null,
+  /dev/zero, /dev/full, /dev/mem.
+
+2.sysfs
+  an in-memory virtual file system, generally mounted at /sys
+
+
+Chapter 18 Debugging
+1.loglevel
+  printk() can be used with different log levels: e.g. KERN_WARNING, KERN_DEBUG, ... (each is a string "<n>")
+  kernel decides whether to print the message based on specified log level in printk() and the current
+  console log level (console_loglevel).
+
+
+Chapter 19 Portability
+all architecture-specific files: arch/
+* Microsoft DOS (first version) was entriely written in assembly, only on architecture x86.
+
+1.word
+  (32 or 64 bits in architectures of kernel 2.6.33)
+  the amount of data that a machine can process at one time.
+  size of a processor’s general-purpose registers (GPRs) == word size
+  the bits of virtual memory address space == word size
+  the size of a pointer == word size
+  the size of C type long == word size
+  * In Linux, the size of the C long type is guaranteed to be the machine’s word size.
+  But size of other types (e.g. int) can have different sizes in different architectures,
+  so programmers of C code cannot assume C types have any specific size
+  (exception: char is always 1 byte regardless of architecture).
+
+* structure padding
+  structures are padded so that each element of the structure is naturally aligned.
+  A variable is naturally aligned if it exists at a memory address that is a multiple of its size.
+  e.g.
+  struct animal_struct {
+    char dog;            /* 1 byte */
+    unsigned long cat;   /* 4 bytes */
+    unsigned short pig;  /* 2 bytes */
+    char fox;            /* 1 byte */
+  };
+  sizeof(struct animal_struct) is 12 instead of 8.
+
+2.byte order
+  the order of bytes within a word. 
+  big-endian: the most significant byte is at the beginning.
+  little-endian: the least significant byte is at the beginning.
+
+* never assume size of word, size of C types, size of structure, byte order,
+  frequency of time interrupt, page size, load/store ordering (use barrier)
+
+Chapter 20 Patches, Hacking, and the Community
+1.Linux coding style
+  Documentation/CodingStyle
+  format code:
+   indent -kr -i8 -ts8 -sob -l80 -ss -bs -psl <file>
+   (or scripts/Lindent) 
