@@ -1,0 +1,46 @@
+Chapter 2: MapReduce
+1.mapreduce introduction
+  mapreduce code: define 3 functions (map(), reduce() and function to start mapreduce job).
+  map(k1, v1) returns (k2, v2)
+  reduce(k2, list(v2)) returns (k3, v3)
+  (1).User writes mapreduce code (job).
+  (2).Input is divided into splits (typically one HDFS block size) stored in HDFS.
+  (3).Each map task reads one split from HDFS (typically map task and the split are in same machine),
+      does map(), writes result (partitioned (typically hashed by key, sorted by value) for each reduce task)
+      to local file system.
+      *optimization: a combiner function (same interface as reduce(), local reduce) can be run at the machine of
+      each map task, to (sometimes) reduce the size of input for reduce tasks.
+      (not all mapreduce jobs can work with combiner function).
+  (4).Each reduce task reads input from multiple map tasks (this step incurs network communication),
+      does reduce(), writes result to HDFS. 
+ 
+
+2.run mapreduce in standalone mode
+  standalone mode: run on one machine without HDFS, reads and writes from local file system,
+    used as testing when development, everything runs in a JVM.
+  suppose the path of source code of mapreduce: /example.
+  compile source code: javac -classpath `hadoop classpath`:/example /example/xxx.java
+  set environment variable: HADOOP_CLASSPATH=/example.
+  run: hadoop source-code-class-name arguments.
+
+
+Chapter 3: The Hadoop Distributed Filesystem
+1.components
+  The file is splited into blocks (typically 128MB), each block is replicated in different
+  machines (nodes).
+  namenode: the machine(s) to store file system metadata (e.g. file-to-block mapping),
+            and directory.
+            contains metadata (namespace image) and log (edited log).
+            2 methods to keep highly available namenode to client:
+            (1).2 machines (active and standby)
+            (2).quorum journal manager (like replicated state machine)
+  datanode: the machines to store file data blocks.
+
+2.run HDFS in pseudodistributed mode
+  pseudodistributed mode: run on one machine with HDFS daemon, reads and writes from HDFS,
+    simulate a cluster, need configuration files (XML).
+  writes configuration files: copy $HADOOP_HOME/etc/hadoop to a directory (e.g. /example), change
+    core-site.xml, hdfs-site.xml, mapred-site.xml, yarn-site.xml.
+  start HDFS: start-dfs.sh --config /example
+  stop HDFS: stop-dfs.sh
+  run commands in HDFS: hadoop fs -help (e.g. hadoop fs -mkdir test)   
