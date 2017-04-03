@@ -1,0 +1,40 @@
+1.jvm, jdk, jar, classpath ?
+
+2.public class XXX {
+    static {
+     ... ?
+    }
+  }
+
+3.interface ?
+
+4.A x = null;
+  x = new B();
+  x.f(); (f is not defined in A, but defined in B) ?
+
+5.A x = new A() {
+    public void f() {
+      ...
+    }
+  }; ?
+
+6.FileOutputStream flush(), getFD().sync() ?
+
+7.(Linux, not java) cgroup?
+
+8.NoClassDefFoundError ?
+  xxx.class
+
+9.JUnit 4 assertion (assertThat) ?
+
+10.package org.apache.hadoop ?
+
+11.singleton ?
+
+12.set JVM system property: -Dproper=value ?
+
+13.apache maven (XML, POM, mvn compile)?
+
+14.enum increment ?
+
+15.log4j ?

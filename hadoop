@@ -1,8 +1,8 @@
 Chapter 2: MapReduce
 1.mapreduce introduction
   mapreduce code: define 3 functions (map(), reduce() and function to start mapreduce job).
-  map(k1, v1) returns (k2, v2)
-  reduce(k2, list(v2)) returns (k3, v3)
+  map(k1, v1) returns list(k2, v2)
+  reduce(k2, list(v2)) returns list(k3, v3)
   (1).User writes mapreduce code (job).
   (2).Input is divided into splits (typically one HDFS block size) stored in HDFS.
   (3).Each map task reads one split from HDFS (typically map task and the split are in same machine),
@@ -36,11 +36,123 @@ Chapter 3: The Hadoop Distributed Filesystem
             (2).quorum journal manager (like replicated state machine)
   datanode: the machines to store file data blocks.
 
-2.run HDFS in pseudodistributed mode
+2.file system operations (in Java)
+  important classes: FileSystem, FSDataInputStream, FSDataOutputStream, FileStatus
+  important methods:
+  class: FileSystem
+    get (get file system)
+    open (open a file, get FSDataInputStream, can be read by using Java library method)
+    create (create a file)
+    append (append to a file)
+    mkdirs (create a directory)
+    delete (delete a file) 
+    getFileStatus (get file's metadata)
+    listStatus (get each file, sub directory's metadata in a directory)
+    globStatus (get each file, sub directory's metadata by matching a path pattern)
+  class: FSDataInputStream
+    seek (seek in a file) 
+
+3.read a file (what happens internally)
+  client (user) calls open() on file A.
+    (in open(), client contacts namenode to get datanodes locations
+    for the first few blocks of file A)
+  client calls read() on file A.
+    (in read(), client contacts datanodes to get file A's data blocks,
+    client may contact namenode to get datanodes locations for subsequent blocks)
+  client calls close() on file A.
+  
+  (open() in class FileSystem, read()/close() in class FSDataInputStream)
+
+4.create and write a file (what happens internally)
+  client calls create() on file A.
+    (in create(), client contacts namenode to let namenode record file metadata)
+  client calss write() on file A.
+    (in write(), client contacts namenode to get datanodes locations for storing
+    file's blocks, client sends block to 1st datanode (typically located in same machine as client),
+    1st datanode sends block to 2nd datanode, and so on (pipeline), as long as a certain number of
+    datanodes get block, write() returns successfully, other datanodes can be sent block later
+    asynchronously.)
+  clients calls close() on file A.
+    (in close(), all blocks which are not sent will be sent to datanodes, and client contacts
+    namenode to signal the operations on file are complete.)
+
+  (create() in class FileSystem, write()/close() in class FSDataOutputStream) 
+
+5.run HDFS in pseudodistributed mode
   pseudodistributed mode: run on one machine with HDFS daemon, reads and writes from HDFS,
     simulate a cluster, need configuration files (XML).
   writes configuration files: copy $HADOOP_HOME/etc/hadoop to a directory (e.g. /example), change
     core-site.xml, hdfs-site.xml, mapred-site.xml, yarn-site.xml.
+  format the namenode?: hdfs namenode -format 
   start HDFS: start-dfs.sh --config /example
   stop HDFS: stop-dfs.sh
-  run commands in HDFS: hadoop fs -help (e.g. hadoop fs -mkdir test)   
+  run commands in HDFS: hadoop fs -help (e.g. hadoop fs -mkdir test)
+  in core-site.xml, we set the host (localhost) and port (default) for HDFS namenode, so clients
+  can connect to HDFS namenode.
+  (format(URI: hdfs:// denotes HDFS, file:// denotes local file system): hdfs://hostname)
+  
+  interact with HDFS in command line: hadoop fs -cmd path (e.g. hadoop fs -ls hdfs://localhost/mydirectory)
+  copy directories/files among file systems: hadoop distcp src dst
+
+
+Chapter 5: Hadoop I/O
+1.serialization
+  used in (1).interprocess communication and (2).persistent storage.
+  object -> bytes (serialization)
+  bytes -> object (deserialization)
+  hadoop mapreduce uses Writable as type for object as key and value.
+  import classes/interfaces: Writable, WritableComparable, IntWritable, FloatWritable, Text,
+    NullWritable
+
+
+Chapter 6: Developing a MapReduce Application
+1.configuration
+  hadoop has pre-defined properties (like variables) in configuration file (XML).
+  <property>
+    <name>...</name>
+    <value>...</value>
+  </property>
+ 
+  useful options in command line
+  -D: set/reset a property. e.g. hadoop class-name -D mapreduce.job.reduces=xxx
+  -conf: set configuration files
+  -fs: set file system
+  -jt, -files, -archives, -libjars
+
+2.write a driver to run mapreduce job (mapreduce: map, reduce and driver)
+  driver is a class (can implement interface Tool, override run() method), whose main method
+  is the entry point of mapreduce job, call submit()/waitForCompletion() on Job object to run
+  mapreduce job.
+  * the purpose of implmenting Tool is to let us set configuration (by -conf) on command line (hadoop class-name).
+
+3.the components of a mapreduce job
+  client -> (submit job) YARN resource manager
+  client -> (copy job resources) HDFS
+  YARN resource manager -> (start) YARN node manager for mapreduce application master (MRAppMaster)
+  mapreduce application master -> (split input) HDFS, (start) YARN node mangers for map/reduce tasks.
+
+  map task -> ((key, value) partitioned and sorted by key) write to disk in local machine.
+  reduce task ->
+    (1).(get partition information from mapreduce application master, copy data from map tasks)
+        write to disk in local machine.
+    (2).(sort (merge) data copied from all map tasks, run reduce())
+        write result to HDFS.
+  
+  shuffle: operations to transfer output produced by map(), to input cosumed by reduce()
+    (including above all operations: partition and sort (map task), copy and merge (reduce task)).
+    get better performance:
+      (1).map: decrease number of spills to disk
+      (2).reduce: keep all data (from map tasks) in memory
+
+  handle failure:
+  map/reduce task: send heartbeat to mapreduce application master, the master will retry.
+  mapreduce application master and node manager: send heartbeat to YARN resource manager,
+    the resource manger will retry.
+  resource manager: have two resource managers actually (active and standby), the state of
+    resource manager (application information) stored in zookeeper or HDFS, heartbeat between
+    active and standby resource managers, failover between active and standby handled by zookeeper.
+
+  speculative execution: the task which is currently running slowly on one machine, will be scheduled
+    to run at the same time on another machine. When one task is finished first, the other is killed.
+    Task first writes its output in its own temporary directory, then copies to real output directory
+    (handled by class OutputCommitter to avoid race condition between two tasks).
