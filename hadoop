@@ -156,3 +156,17 @@ Chapter 6: Developing a MapReduce Application
     to run at the same time on another machine. When one task is finished first, the other is killed.
     Task first writes its output in its own temporary directory, then copies to real output directory
     (handled by class OutputCommitter to avoid race condition between two tasks).
+
+Chapter 9: MapReduce Features
+1.counter
+  Client can create and update counter (one integer) to log information.
+  Counters which are updated per task will be sent to application master to aggregate later.
+  class/method: class Counter, getCounter() (class Context)
+
+2.join
+  map-side join
+  reduce-side join
+
+3.distributed cache
+  files are copied to HDFS, each node manager copies the files from HDFS to its own memory,
+  and maintains a cache in its own memory.
