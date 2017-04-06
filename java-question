@@ -38,3 +38,9 @@
 14.enum increment ?
 
 15.log4j ?
+
+16.CountDownLatch: countDown(), await() ?
+
+17.nc (Linux) ?
+
+18.optimistic locking mechanism ?

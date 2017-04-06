@@ -156,3 +156,56 @@ Chapter 6: Developing a MapReduce Application
     to run at the same time on another machine. When one task is finished first, the other is killed.
     Task first writes its output in its own temporary directory, then copies to real output directory
     (handled by class OutputCommitter to avoid race condition between two tasks).
+
+
+Chapter 21: ZooKeeper
+1.introduction
+  zookeeper is a service to help build distributed application
+  interface for client: a restricted file system (a hierarchical structure of znode (file/directory)).
+  client create/read/write/delete znode.
+  znode types: 
+    (1).ephemeral (the znode will be deleted by zookeeper server, when the client that created it
+        disconnects from server, ephemeral znode cannot have children)
+    (2).persistent (the znode will not be deleted when client disconnects, has to be deleted explicitly) 
+ 
+  (1).start a zookeeper server
+      (with a local file system directory for server to store data, as / for zookeeper file system)
+  (2).client contacts to server
+      (client creates a ZooKeeper object. process() in class Watcher
+      is the callback which zookeeper server will call when server wants to notify client new events,
+      client can create a class to extend Watcher and override process() to handle server's events)
+  * client can be any code, the zookeeper part is the servers.
+  
+  important classes: ZooKeeper, Watcher
+  important methods: 
+    create, getChildren, close, delete, exists, get/setData, get/setACL (Zookeeper)
+    process (Watcher)
+  
+  * read operations (exists, getChildren, getData) of znode can be called with watches (callbacks),
+     which will be called when write operations (create, delete, setData) happen.
+    all methods (read/write/create/delete) are guaranteed to be atomic by zookeeper. 
+
+2.examples to use zookeeper
+  some examples are implemented under $ZOOKEEPER_HOME/recipes.
+  (1).membership (get the list of current clients):
+    each client contacts to zookeeper server to create a unique (ephemeral) znode under same directory (znode).
+    a client can get the list of current clients by getting the children of common znode (reading the common directory).
+    If one client's process terminates, its session to zookeeper server will also terminate, and its znode (ephemeral)
+    will be deleted.
+ 
+  (2).configuration (one client writes/updates configuration (a znode), other clients reads configuration)
+    e.g. the configuration (znode) path: /config
+    the writer client writes to /config
+    the reader clients read /config (set watch when call getData() to get nofitication when the /config is changed,
+      in watch, call getData() with watch again, because watch is only called once)
+
+  (3).lock (only one client can hold the lock, other clients wait for the lock)
+    e.g. under a common directory: /
+    all clients create a znode with sequential flag (a znode with user-defined path /xxx, will be created by zookeeper server
+    as /xxx-sequence_number, where the sequence number is a unique incremented counter maintained by zookeeper server)
+    all clients (with znode /xxx-n) test whether /xxx-(n-1) exists, and sets watch on exists(), when /xxx-(n-1) is deleted,
+    the client can hold the lock (enter the critical region).
+
+3.implementation
+  zookeeper servers keeps replicated structure of znodes (the file system of znode) by following a consensus
+  algorithm (leader, followers) (Zab, similar to Paxos, what's the difference?).  
