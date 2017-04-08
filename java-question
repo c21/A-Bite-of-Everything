@@ -1,4 +1,4 @@
-1.jvm, jdk, jar, classpath ?
+1.jvm, jdk, jar, classpath, HotSpot ?
 
 2.public class XXX {
     static {
@@ -44,3 +44,13 @@
 17.nc (Linux) ?
 
 18.optimistic locking mechanism ?
+
+19.class as parameter (void f(Class<?> c)) ?
+
+20.javadoc ?
+
+21.apache thrift ?
+
+22.apache ant ?
+
+23.what is UTF-8, locale, $LANG shell variable ?
