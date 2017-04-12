@@ -54,3 +54,7 @@
 22.apache ant ?
 
 23.what is UTF-8, locale, $LANG shell variable ?
+
+24.thread pool (java.util.concurrent.ExecutorService) ?
+
+25.JMX ?

@@ -34,4 +34,80 @@ Chapter 4: The Cassandra Query Language
   collections: set, list, map
   user defined type: CREATE TYPE type-name (...);
 
+Chapter 6: The Cassandra Architecture
+1.node keeps track of each other's state
+  gossip protocol: every certain time (e.g. 1 seconds), each node exchanges information with
+  a random node.  
+  org.apache.cassandra.gms.Gossiper
+  
+  failure detector (Phi accrual failure detector): org.apache.cassandra.gms.FailureDetector
+
+2.snitch
+  When client issues a read, a program (snitch) will find the fastest (according to network
+  topology) node to read.
+  org.apache.cassandra.locator
+  
+3.ring and tokens
+  The cassandra nodes consist of a ring (each node has a ID (token)). Each node takes charge of
+  data whose ID (the hash value of data's partition key) is larger than previos node's ID. 
+  org.apache.cassandra.dht.Range
+
+  * Actually each physcial machine takes charge of several nodes (so-called virtual nodes).
+  org.apache.cassandra.dht.tokenallocator.ReplicationAwareTokenAllocator
+
+  * To calculate the hash value of data's parition key (data's token), use Murmur3Partitioner
+  partitioner by default.
+  org.apache.cassandra.dht.Murmur3Partitioner
+ 
+4.replication of data
+  In addition to the node who takes charge of data (by calculating token ID), several other nodes
+  also need to store data (replication of data). The replication factor is the number of copies
+  (including the original one) of one data.
+
+  SimpleStrategy: store data at consecutive nodes after the node.
+  org.apache.cassandra.locator.SimpleStrategy
+  
+  NetworkTopologyStrategy: client can specify how many nodes to store in each different data center.
+  org.apache.cassandra.locator.NetworkTopologyStrategy
+
+5.consistency level
+  For each client read/write operation, how many replication of data need to be got.
+  ANY (?) , ONE, TWO, THREE, QUORUM (ALL/2+1, majority), ALL (=replication factor).
+
+  For each client read/write operation, client contacts a node (called coordinator node,
+  may be *anyone*). That node contacts the nodes responsible for the data (number of nodes is 
+  according to consistency level) to finish read/write operation.
+
+6.how cassandra node stores data
+  in memory: memtable, cache (key, counter, row)
+  in disk: commit log, SSTable
+  write a data:
+    (1).write to commit log in disk
+    (2).write to memtable in memory (org.apache.cassandra.db.Memtable)
+    (3).when the size of memtable reaches a threshold, memtable is written to SSTable in disk
+
+  * hinted handoff: when writing data to an failed node (e.g. A), the write can be written first
+  to another node (e.g. B), node B will record the data should belong to A, and when A comes back,
+  B writes data to A.
+  org.apache.cassandra.db.HintedHandOffManager
+ 
+  * lightweight transaction: cassandra supports read and write for one client (no other clients can
+  come in between read and write) by lightweight transaction based on Paxos.
+  org.apache.cassandra.service.paxos
+
+  * bloom filter (what is it ?): an optimization for reading the data.
+  org.apache.cassandra.utils.BloomFilter
+
+  * compaction (what is it ?): the SSTables in disk will be compacted into small size.
+  org.apache.cassandra.db.compaction.CompactionManager
+
+  * anti-entropy: resolve the conflict when data from nodes are different (read repair
+  and anti-entropy repair (use Merkle tree)).
+
+7.staged event-driven architecture
+  stage: one event queue, event handler and one thread pool.
+  Each operation in cassandra is implemented as stage (read, write, gossip, repair, ...)
+  org.apache.cassandra.concurrent.StageManager
+
+  
  

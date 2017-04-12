@@ -172,7 +172,26 @@ Chapter 9: MapReduce Features
   files are copied to HDFS, each node manager copies the files from HDFS to its own memory,
   and maintains a cache in its own memory.
 
+Chapter 20: HBase
+1.introduction
+  HBase is a distributed database (very similar to google bigtable).
+  data is stored in table (rows). Each row has columns (one column is primary key,
+  columns belong to column family ?, each column can have different version of data).
+  region: some contiguous rows in one table (one region is stored in one machine,
+    different regions can store in different machines)
+    (region: the minimal element for data distribution).
+    (table is splitted into more regions, when the table's size becomes big).
+ 
+  implementation:
+    one master, and workers (regionservers)
+    (coordinate each other by using ZooKeeper, and write data to a distributed file system, e.g. HDFS).
 
+    worker (regionserver) writes data:
+      (1).log in HDFS (commit log)
+      (2).data in memory (memstore)
+      (3).data in HDFS (flush file, when memstore's size becomes big).
+     
+     
 Chapter 21: ZooKeeper
 1.introduction
   zookeeper is a service to help build distributed application
